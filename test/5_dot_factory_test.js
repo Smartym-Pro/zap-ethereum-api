@@ -17,7 +17,7 @@ const ZapToken = artifacts.require("ZapToken");
 const Dispatch = artifacts.require("Dispatch");
 const Arbiter = artifacts.require("Arbiter");
 const Cost = artifacts.require("CurrentCost");
-const DotFactory = artifacts.require("ERCDotFactory");
+const DotFactory = artifacts.require("TokenDotFactory");
 const EthAdapter = artifacts.require("EthAdapter");
 const TokenAdapter = artifacts.require("TokenAdapter");
 const EthGatedMarket = artifacts.require("EthGatedMarket");
@@ -41,11 +41,21 @@ contract('ERCDotFactory', function (accounts) {
     const piecewiseFunction = [3, 0, 0, 2, 10000];
     const broker = 0;
 
+    const tokensForOwner = new BigNumber("1500e18");
+    const tokensForSubscriber = new BigNumber("5000e18");
+    const approveTokens = new BigNumber("1000e18");
+    const dotBound = new BigNumber("999");
+
     async function prepareProvider(provider = true, curve = true, account = oracle, curveParams = piecewiseFunction, bondBroker = broker) {
         if (provider) await this.registry.initiateProvider(publicKey, title, { from: account });
         if (curve) await this.registry.initiateProviderCurve(specifier, curveParams, bondBroker, { from: account });
     }
-
+    async function prepareTokens(allocAddress = subscriber) {
+        await this.token.allocate(owner, tokensForOwner, { from: owner });
+        await this.token.allocate(factoryOwner, tokensForOwner, { from: owner });
+        await this.token.allocate(allocAddress, tokensForSubscriber, { from: owner });
+        // await this.token.approve(this.bondage.address, approveTokens, {from: subscriber});
+    }
     beforeEach(async function deployContracts() {
         // Deploy initial contracts
         this.currentTest.token = await ZapToken.new();
@@ -55,7 +65,6 @@ contract('ERCDotFactory', function (accounts) {
         await this.currentTest.db.transferOwnership(this.currentTest.coord.address);
         await this.currentTest.coord.addImmutableContract('DATABASE', this.currentTest.db.address);
         await this.currentTest.coord.addImmutableContract('ZAP_TOKEN', this.currentTest.token.address);
-
         // Deploy registry
         this.currentTest.registry = await Registry.new(this.currentTest.coord.address);
         await this.currentTest.coord.updateContract('REGISTRY', this.currentTest.registry.address);
@@ -77,33 +86,113 @@ contract('ERCDotFactory', function (accounts) {
     });
 
     it("DOT_FACTORY_1 - constructor() - Check dot factory initialization", async function () {
-        await DotFactory.new(this.test.coord.address, this.test.tokenFactory.address);
+        await DotFactory.new(this.test.coord.address, this.test.tokenFactory.address, publicKey, title);
     });
 
     it("DOT_FACTORY_2 - constructor() - Check that address passed to constructor must be coordinator", async function () {
-        await expect(DotFactory.new(accounts[0], this.test.tokenFactory.address)).to.be.eventually.rejectedWith(EVMRevert);
+        await expect(DotFactory.new(accounts[0], this.test.tokenFactory.address, publicKey, title)).to.be.eventually.rejectedWith(EVMRevert);
     });
 
     it("DOT_FACTORY_3 - newToken() - Check that factory can create token", async function () {
-        let factory = await DotFactory.new(this.test.coord.address, this.test.tokenFactory.address, {from: factoryOwner});
-        await prepareProvider.call(this.test, true, false, oracle, piecewiseFunction, factory.address);
+        let factory = await DotFactory.new(this.test.coord.address, this.test.tokenFactory.address, publicKey, title, {from: factoryOwner});
+        // await prepareProvider.call(this.test, true, false, oracle, piecewiseFunction, factory.address);
         let token = await factory.newToken('name', 'symbol', {from: factoryOwner});
     });
 
     it("DOT_FACTORY_4 - initializeCurve() - Check that factory can init curve", async function () {
-        let factory = await DotFactory.new(this.test.coord.address, this.test.tokenFactory.address, {from: factoryOwner});
-        await prepareProvider.call(this.test, true, false, oracle, piecewiseFunction, factory.address);
-        await factory.initializeCurve(publicKey, title, specifier, 'a', piecewiseFunction, {from: factoryOwner});
+        let factory = await DotFactory.new(this.test.coord.address, this.test.tokenFactory.address, publicKey, title, {from: factoryOwner});
+        // await prepareProvider.call(this.test, true, false, oracle, piecewiseFunction, factory.address);
+        await factory.initializeCurve(specifier, 'a', piecewiseFunction, {from: factoryOwner});
+    });
+    it("DOT_FACTORY_5 - ownerBond() - Check that owner can bond", async function () {
+
+        let factory, bal, dotAddr, issued, cost, factoryBalance, dotToken, dotBalance;
+        factory = await DotFactory.new(this.test.coord.address, this.test.tokenFactory.address, publicKey, title, {from: factoryOwner});
+
+        const factoryEvents = factory.allEvents({ fromBlock: 0, toBlock: 'latest' });
+        factoryEvents.watch((err, res) => { });
+
+
+        bal = await this.test.token.balanceOf(factoryOwner);
+        console.log(bal);
+        await prepareTokens.call(this.test);
+        bal = await this.test.token.balanceOf(factoryOwner);
+        console.log(bal);
+
+        let tx = await factory.initializeCurve(specifier, 'a', piecewiseFunction, {from: factoryOwner});
+        dotAddr = tx.logs[1].args.tokenAddress;
+        console.log('dotAddr ', dotAddr);
+
+        console.log('factory address: ', factory.address);
+        await this.test.token.approve(factory.address, approveTokens, {from: factoryOwner});
+
+// bonding
+
+        issued = await this.test.bondage.getDotsIssued(factory.address, specifier); 
+        console.log('issued ', issued);
+        cost = await this.test.cost._costOfNDots(factory.address, specifier, issued+1, 0);  
+        console.log('cost ', cost);
+
+        await factory.bond(specifier, 1, {from:factoryOwner});
+        await factory.bond(specifier, 1, {from:factoryOwner});
+        await factory.bond(specifier, 1, {from:factoryOwner});
+        await factory.bond(specifier, 1, {from:factoryOwner});
+
+        factoryBalance = await this.test.token.balanceOf(factory.address);
+        console.log('factoryBalance: ', factoryBalance);
+
+            // console.log(dotAddr)
+        dotToken = await ZapToken.at(dotAddr); 
+        dotBalance = await dotToken.balanceOf(factoryOwner);
+        console.log('dot balance: ', dotBalance);
+
+
+        issued = await this.test.bondage.getDotsIssued(factory.address, specifier); 
+        console.log('issued ', issued);
+        cost = await this.test.cost._costOfNDots(factory.address, specifier, issued+1, 0);  
+        console.log('cost ', cost);
+
+        await dotToken.approve(factory.address, approveTokens, {from: factoryOwner});
+        await factory.unbond(specifier, 1, {from:factoryOwner});
+        await factory.unbond(specifier, 1, {from:factoryOwner});
+        await factory.unbond(specifier, 1, {from:factoryOwner});
+        await factory.unbond(specifier, 1, {from:factoryOwner});
+
+        factoryBalance = await this.test.token.balanceOf(factory.address);
+        console.log('factoryBalance: ', factoryBalance);
+
+            // console.log(dotAddr)
+        dotToken = await ZapToken.at(dotAddr); 
+        dotBalance = await dotToken.balanceOf(factoryOwner);
+        console.log('dot balance: ', dotBalance);
+
+        const logs = await factoryEvents.get();
+        console.log(logs);
+
     });
 
-    it("DOT_FACTORY_5 - initializeCurve() - Check that only factory owner can init curve", async function () {
-        let factory = await DotFactory.new(this.test.coord.address, this.test.tokenFactory.address, {from: factoryOwner});
-        await prepareProvider.call(this.test, true, false, oracle, piecewiseFunction, factory.address);
+        // let acceptedToken = await FactoryToken.new('Accepted Token', 'AT', {from: factoryOwner});
+        // let factory = await TokenAdapter.new(this.test.coord.address, this.test.tokenFactory.address, acceptedToken.address, {from: factoryOwner});
+        // await factory.setAdapterRate(1, {from: factoryOwner});
+        // await factory.initializeCurve(publicKey, title, specifier, 'a', piecewiseFunction, {from: factoryOwner});
+        // await prepareTokens.call(this.test, factory.address);
+        //
+        // await this.test.token.allocate(factoryOwner, tokensForSubscriber);
+        // await this.test.token.approve(factory.address, tokensForSubscriber, {from: factoryOwner});
+        //
+        // await acceptedToken.mint(factoryOwner, tokensForSubscriber, {from: factoryOwner});
+        // await acceptedToken.approve(factory.address, tokensForSubscriber, {from: factoryOwner});
+        //
+        // await factory.ownerBond(factoryOwner, specifier, 1, {from: factoryOwner});
 
-        // TODO: add onlyOwner modifier for initializeCurve() function
-        // await expect(factory.initializeCurve(publicKey, title, specifier, 'a', piecewiseFunction, {from: accounts[9]})).to.be.eventually.rejectedWith(EVMRevert);
-        await factory.initializeCurve(publicKey, title, specifier, 'a', piecewiseFunction, {from: accounts[9]});
-    });
+    // it("DOT_FACTORY_5 - initializeCurve() - Check that only factory owner can init curve", async function () {
+    //     let factory = await DotFactory.new(this.test.coord.address, this.test.tokenFactory.address, {from: factoryOwner});
+    //     await prepareProvider.call(this.test, true, false, oracle, piecewiseFunction, factory.address);
+    //
+    //     // TODO: add onlyOwner modifier for initializeCurve() function
+    //     // await expect(factory.initializeCurve(publicKey, title, specifier, 'a', piecewiseFunction, {from: accounts[9]})).to.be.eventually.rejectedWith(EVMRevert);
+    //     await factory.initializeCurve(publicKey, title, specifier, 'a', piecewiseFunction, {from: accounts[9]});
+    // });
 });
 
 contract('EthAdapter', function (accounts) {
