@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 
 import "./EthAdapter.sol";
 import "./TokenAdapter.sol";
@@ -18,7 +18,7 @@ contract EthGatedMarket is EthAdapter {
     TokenAdapter public marketFactory; //factory for gated curves
 
     constructor(address coordinator, address tokenFactory)
-    EthAdapter(coordinator, tokenFactory, 1) {
+    EthAdapter(coordinator, tokenFactory, 1) public {
 
         bondAllow = false;
         unbondAllow = false;
@@ -30,9 +30,9 @@ contract EthGatedMarket is EthAdapter {
         uint256 pubKey,
         bytes32 specifier,
         bytes32 symbol,
-        int256[] curve,
+        int256[] memory curve,
         uint256 adapterRate
-        ) returns(address){
+        ) public returns(address){
 
         require(gatewaySpecifier == bytes32(0));
         gatewayToken = FactoryTokenInterface(
@@ -44,10 +44,10 @@ contract EthGatedMarket is EthAdapter {
         gatewaySpecifier = specifier;
         setAdapterRate(adapterRate);
         bondAllow = true;
-        return gatewayToken;
+        return address(gatewayToken);
     }
 
-    function setMarket(TokenAdapter _market) onlyOwner {
+    function setMarket(TokenAdapter _market) public onlyOwner {
         marketFactory = _market;
     }
 
@@ -69,7 +69,7 @@ contract EthGatedMarket is EthAdapter {
         bytes32 title,
         bytes32 specifier,
         bytes32 symbol,
-        int256[] curve
+        int256[] memory curve
     ) public returns(address) {
         return marketFactory.initializeCurve(
             pubKey, title, specifier, symbol, curve
@@ -77,13 +77,13 @@ contract EthGatedMarket is EthAdapter {
     }
 
     // bond to gated market with gateway token
-    function marketBond(bytes32 specifier, uint quantity) {
+    function marketBond(bytes32 specifier, uint quantity) public {
 
         marketFactory.ownerBond(msg.sender, specifier, quantity);
     }
 
     // unbond from gated market with gateway token
-    function marketUnbond(bytes32 specifier, uint quantity) {
+    function marketUnbond(bytes32 specifier, uint quantity) public {
 
         marketFactory.ownerUnbond(msg.sender, specifier, quantity);
     }
@@ -93,12 +93,12 @@ contract EthGatedMarket is EthAdapter {
     }
 
     // allow bond
-    function allowBond(bool _allow) onlyOwner {
+    function allowBond(bool _allow) public onlyOwner {
         bondAllow = _allow;
     }
 
     // allow unbond
-    function allowUnbond(bool _allow) onlyOwner {
+    function allowUnbond(bool _allow) public onlyOwner {
         unbondAllow = _allow;
     }
 }

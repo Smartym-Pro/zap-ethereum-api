@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 
 import "../../lib/lifecycle/Destructible.sol";
 import "../../lib/ownership/Upgradable.sol";
@@ -202,7 +202,7 @@ contract Bondage is Destructible, BondageInterface, Upgradable {
         uint256 numZap = currentCost._costOfNDots(oracleAddress, endpoint, issued + 1, numDots - 1);
 
         // User must have approved contract to transfer working ZAP
-        require(token.transferFrom(msg.sender, this, numZap), "Error: User must have approved contract to transfer ZAP");
+        require(token.transferFrom(msg.sender, address(this), numZap), "Error: User must have approved contract to transfer ZAP");
 
         if (!isProviderInitialized(holderAddress, oracleAddress)) {
             setProviderInitialized(holderAddress, oracleAddress);
@@ -258,11 +258,11 @@ contract Bondage is Destructible, BondageInterface, Upgradable {
 
     /// @dev get broker address for endpoint
     function getEndpointBroker(address oracleAddress, bytes32 endpoint) public view returns (address) {
-        return address(db.getBytes32(keccak256(abi.encodePacked('oracles', oracleAddress, endpoint, 'broker'))));
+        return address(bytes20(db.getBytes32(keccak256(abi.encodePacked('oracles', bytes20(oracleAddress), endpoint, 'broker')))));
     }
 
     function getNumEscrow(address holderAddress, address oracleAddress, bytes32 endpoint) public view returns (uint256) {
-        return db.getNumber(keccak256(abi.encodePacked('escrow', holderAddress, oracleAddress, endpoint)));
+        return db.getNumber(keccak256(abi.encodePacked('escrow', bytes20(holderAddress), bytes20(oracleAddress), endpoint)));
     }
 
     function getNumZap(address oracleAddress, bytes32 endpoint) public view returns (uint256) {

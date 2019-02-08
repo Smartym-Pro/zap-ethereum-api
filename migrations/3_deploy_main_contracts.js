@@ -11,7 +11,7 @@ const Faucet = artifacts.require("./Faucet.sol");
 const Telegram = artifacts.require("./Telegram.sol");
 const ZapToken = artifacts.require("./ZapToken.sol");
 
-const deploy = async function(deployer, network) {
+module.exports = async function(deployer, network) {
     console.log("Deploying main contracts on: " + network);
 
     // Deploy all the coordinator
@@ -50,10 +50,6 @@ const deploy = async function(deployer, network) {
 
     // Deploy telegram example
     console.log('Done migrating core contracts');
-};
-
-module.exports = (deployer, network) => {
-    deployer.then(async () => await deploy(deployer, network));
 };
 
 function sleep(network) {

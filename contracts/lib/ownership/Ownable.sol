@@ -1,8 +1,8 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 
 contract Ownable {
-    address public owner;
-    event OwnershipTransferred(address indexed previousOwner,address indexed newOwner);
+    address payable public owner;
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /// @dev The Ownable constructor sets the original `owner` of the contract to the sender account.
     constructor() public { owner = msg.sender; }
@@ -15,7 +15,7 @@ contract Ownable {
 
     /// @dev Allows the current owner to transfer control of the contract to a newOwner.
     /// @param newOwner The address to transfer ownership to.
-    function transferOwnership(address newOwner) public onlyOwner {
+    function transferOwnership(address payable newOwner) public onlyOwner {
         require(newOwner != address(0));
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;

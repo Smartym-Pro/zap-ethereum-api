@@ -2,10 +2,11 @@ require('babel-register');
 require('babel-polyfill');
 
 
-const HDWalletProvider = require("truffle-hdwallet-provider-privkey");
-const HDWalletProviderMem = require("truffle-hdwallet-provider");
+const HDWalletProvider = require("truffle-hdwallet-provider");
 
 const mnemonic = "solid giraffe crowd become skin deliver screen receive balcony ask manual current";
+
+const mypk = ["7804B2AD10B7EF7200678B2EA42C78B4A66DF5FB264A4867C38C859DD5DA38DC"];
 
 module.exports = {
     networks: {
@@ -28,8 +29,9 @@ module.exports = {
             host: "localhost",
             port: 7545,
             network_id: "5777",
-            gas: "6700000",
-            gasPrice: "10000000"
+            gas: "6721975",
+            gasPrice: "20000000000",
+            provider: function () { }
         },
 	   "docker": {
             host: "bootstrap",
@@ -45,10 +47,18 @@ module.exports = {
         },
 
         "kovan": {
-            provider: new HDWalletProviderMem(mnemonic, "https://kovan.infura.io"),
+            provider: new HDWalletProvider(mnemonic, "https://kovan.infura.io"),
             gas: "6238278",
             gasPrice: "8000000000",
             network_id: "*"
-        }
+        },
+
+       "kovan_test": {
+            provider: () => new HDWalletProvider(mypk, "https://kovan.infura.io/8PB8Cnu6sYpZu5VVtEDl", 0, 1),
+            gas: "6238278",
+            gasPrice: "5000000000",
+            network_id: "*",
+            skipDryRun: true
+       }
     }
 };

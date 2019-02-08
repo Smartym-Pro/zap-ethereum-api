@@ -12,7 +12,7 @@ const Telegram = artifacts.require("./Telegram.sol");
 const ZapToken = artifacts.require("./ZapToken.sol");
 
 // TO EXEC: truffle migrate -f 4 -to 4 --network=kovan
-const deploy = async function(deployer, network) {
+module.exports = async function(deployer, network) {
     console.log("Deploying main contracts on: " + network);
 
     const redeployList = [
@@ -55,10 +55,6 @@ const deploy = async function(deployer, network) {
     }
 
     console.log('Done updating contracts');
-};
-
-module.exports = (deployer, network) => {
-    deployer.then(async () => await deploy(deployer, network));
 };
 
 function sleep(network) {
